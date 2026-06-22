@@ -57,16 +57,6 @@ npm run dev:frontend   # Next.js만
 
 ---
 
-## Docker로 실행 (선택 사항)
-
-Docker Desktop이 설치된 환경에서는 컨테이너로 전체 스택을 실행할 수 있습니다.
-
-```bash
-npm run docker:up
-```
-
----
-
 ## 자주 발생하는 문제
 
 ### PostgreSQL 연결 오류 (ECONNREFUSED)

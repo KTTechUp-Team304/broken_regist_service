@@ -58,8 +58,6 @@ npm run dev
 
 자세한 설치 방법 → [docs/setup-guide.md](./docs/setup-guide.md)
 
----
-
 ## CTF 취약점 목록
 
 | # | 취약점 | OWASP | 난이도 | 점수 |
