@@ -1,0 +1,100 @@
+.container {
+  max-width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.uploadButton {
+  padding: 0.75rem 1.5rem;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.uploadButton:hover {
+  background: #357abd;
+}
+
+.fileList {
+  background: #2a2a2a;
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+  overflow: hidden;
+}
+
+.tableHeader {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 0.75fr 1fr;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: #1a1a1a;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.headerCell {
+  font-weight: 600;
+  color: #999;
+  font-size: 0.875rem;
+}
+
+.fileRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 0.75fr 1fr;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+}
+
+.fileRow:last-child {
+  border-bottom: none;
+}
+
+.fileName {
+  color: #fff;
+  font-weight: 500;
+}
+
+.fileInfo {
+  color: #999;
+  font-size: 0.875rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.downloadButton {
+  padding: 0.5rem 1rem;
+  background: #2a2a2a;
+  color: #4a90e2;
+  border: 1px solid #4a90e2;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.downloadButton:hover {
+  background: #f0f8ff;
+}
+
+.statusMessage {
+  color: #999;
+  font-size: 0.875rem;
+  padding: 0.75rem 0.5rem;
+}

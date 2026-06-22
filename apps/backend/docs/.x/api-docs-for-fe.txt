@@ -1,0 +1,236 @@
+수강신청 백엔드 — 프론트엔드 연동용 API 요약
+================================================
+
+이 문서는 `broken_regist_backend` 소스(NestJS)에 실제 매핑된 엔드포인트, 요청 헤더/바디/쿼리 타입, 간단 설명을 정리한다.
+상세 시나리오·취약점 설명은 `docs/api-docs.txt`를 참고한다.
+**팀원용 취약점 한눈에 보기:** `docs/vulnerability-matrix.md` (API × IDOR/SQLi/A06/A07, 구현 여부, 페이로드 예시).
+(참고) 감사 로그·에러 로그·보안 이벤트·시스템/디버그 진단용 HTTP API는 **현재 코드에서 제거**되었고, `LogsModule`은 `audit_logs` / `error_logs` 엔티티 등록만 한다.
+
+공통
+----
+- Base URL: `http://localhost:<PORT>` (기본 `PORT`는 `main.ts` 기준 미설정 시 4000; README에는 3000 예시가 있을 수 있음)
+- 전역 prefix: `api` → 대부분의 라우트는 `/api/...` 로 시작한다.
+- JSON 요청 시 헤더: `Content-Type: application/json`
+- 역할(role) 문자열: `student` | `professor` | `admin` (엔티티 `UserRole`과 동일)
+- 계정 상태(status) 문자열: `active` | `suspended` (엔티티 `UserStatus`와 동일)
+
+인증 (JWT + Refresh Cookie)
+---------------------------
+- Access token: `Authorization: Bearer <accessToken>`
+- Refresh token: 로그인 응답 시 **httpOnly** 쿠키 `refreshToken`이 `path=/api/auth` 로 설정됨. 동일 출처에서 `credentials: 'include'` 로 호출해야 쿠키가 전송된다.
+- 선택 헤더 (로그인): `X-Test-Delay: true` — 지연/타임아웃 관련 동작 확인용(기존 설계 문서 참고).
+
+서버 JWT 가드 (구현 기준, `api-docs.txt`와 동일)
+----------------------------------------------
+- **`JwtAuthGuard` 적용:** `POST /api/auth/logout`, `GET /api/auth/me` 만.
+- **가드 없음 (토큰 없이도 HTTP 200 가능):** `courses`, `enrollments`, `users`, `files`, `admin`(대시보드), `admin/users` 전부.
+- 프론트는 승인 후 Bearer를 붙이지만, Burp·curl 실습 시 토큰 생략 가능. `api-docs.txt`에만 Bearer 필수로 적힌 API가 많음 — **문서와 구현 차이** 주의.
+
+라우팅 규칙
+-----------
+- `main.ts`에서 `setGlobalPrefix('api')` 가 설정되어 있으므로, `@Controller` 경로에는 **`api/` 접두어를 넣지 않는다.** (예: `@Controller('api/courses')` 는 실제로 `/api/api/courses` 가 되어 잘못된 URL이 된다.)
+- 강의 목록·상세·공개 여부: `/api/courses/...` , 강의 첨부파일 목록: `/api/courses/:courseId/files` 로 `courses` 경로가 공유된다. Nest는 더 구체적인 라우트(`.../files`)를 우선한다.
+
+Swagger
+-------
+- 브라우저: `{base}/api-docs` (Bearer 설정 가능)
+
+================================================================================
+1. 루트 / 헬스
+================================================================================
+
+GET /api
+  Description: 앱 기본 인사 문자열(간단 헬스). `AppController` + 전역 prefix `api`.
+  Headers: 없음
+  Body: 없음
+  Response: text/plain (문자열)
+
+================================================================================
+2. Auth (`AuthController`, prefix `auth` → `/api/auth`)
+================================================================================
+
+POST /api/auth/register
+  Description: 회원가입. `role` 생략 시 서버에서 `student` 로 저장.
+  Headers: Content-Type: application/json
+  Body (JSON):
+    - id?: number              (선택; DTO에만 존재하며 현재 create 로직에서는 사용하지 않음)
+    - username: string        (필수)
+    - passwordHash: string     (필수 — 필드명은 API 계약상 원문 비밀번호 입력)
+    - role?: string            (선택; `student` | `professor` | `admin` 값 계열)
+  Response (JSON): { id: number, username: string, role: string, createdAt: Date|string, accessToken: string, refreshToken: string }
+  Side effect: 토큰 발급 시 DB `users.recent_login_date` 갱신 (응답 필드에는 없음)
+
+POST /api/auth/login
+  Description: 로그인. accessToken·refreshToken 발급 및 refreshToken 쿠키 설정. 토큰 발급 시 `users.recent_login_date` 갱신.
+  Headers:
+    - Content-Type: application/json
+    - user-agent?: string       (선택; 서버에서 디바이스 정보 등에 사용 가능)
+    - X-Test-Delay?: string    (선택; `true` 등)
+  Body (JSON):
+    - username: string
+    - passwordHash: string
+  Response (JSON):
+    - id, username, role, createdAt
+    - accessToken: string
+    - refreshToken: string    (바디 + Set-Cookie)
+
+POST /api/auth/refresh
+  Description: refresh 쿠키로 access token 재발급.
+  Headers:
+    - Cookie: refreshToken=<token>   (필수에 가깝게 필요)
+  Body: 없음
+  Response (JSON): { accessToken: string }
+
+POST /api/auth/logout
+  Description: access token 검증 후 refresh 폐기 및 쿠키 삭제.
+  Headers:
+    - Authorization: Bearer <accessToken>
+    - Cookie: refreshToken=... (있으면 해당 토큰 폐기 대상)
+  Body: 없음
+  Response (JSON): { success: boolean }
+
+GET /api/auth/me
+  Description: 현재 사용자 프로필.
+  Headers: Authorization: Bearer <accessToken>
+  Body: 없음
+  Response (JSON): { id, username, role, createdAt }
+
+================================================================================
+3. Enrollments (`EnrollmentsController`, `/api/enrollments`)
+================================================================================
+
+GET /api/enrollments/me
+  Description: 수강신청 목록 조회. 쿼리로 userId를 넘기면 다른 사용자 조회로 이어질 수 있는 시나리오(문서 참고).
+  Headers: 없음 (인증 가드 없음 — 구현 기준)
+  Query:
+    - userId?: string
+  Response (JSON): Enrollment[] 
+    Enrollment: { id: number, userId: number, courseId: number, status: string, enrolledAt: string, droppedAt?: string, courseTitle?: string | null, professorName?: string | null }
+
+GET /api/enrollments/:enrollmentId
+  Description: 수강신청 단건. path 값은 문자열로 수신 후 서비스에서 사용.
+  Path:
+    - enrollmentId: string
+  Response (JSON): Enrollment
+
+POST /api/enrollments
+  Description: 수강신청 생성. status가 enrolled(기본)이면 해당 courses.current_count 가 1 증가한다.
+  Headers: Content-Type: application/json
+  Body (JSON):
+    - userId: number
+    - courseId: number
+    - status?: string           (예: enrolled)
+  Response (JSON): Enrollment
+
+POST /api/enrollments/:enrollmentId/cancel
+  Description: 수강신청 취소. 기존 status가 enrolled이면 courses.current_count 가 1 감소한다(0 미만으로는 내려가지 않음).
+  Path:
+    - enrollmentId: string
+  Response (JSON): Enrollment
+
+================================================================================
+4. Courses — 목록·상세·공개여부 (`CoursesController`, 실제 경로 `/api/courses`)
+================================================================================
+
+GET /api/courses
+  Description: 강의 목록(검색/필터 쿼리는 문자열 기준으로 전달). isVisible 생략 시 공개 강의(is_visible=true)만 반환.
+  Query:
+    - keyword?: string
+    - category?: string
+    - isVisible?: string        (생략 시 true만; 'false' 등으로 숨김 강의 조회 가능 — 실습용)
+  Response (JSON): Course[]
+    Course: { id, code, courseTitle, description, professorId, professorName, category, lectureTime, classroom, credits, maxCapacity, currentCount, isVisible, createdAt }
+
+GET /api/courses/:courseId
+  Description: 강의 상세. 공개 강의만 허용. 숨김 강의는 403 Forbidden(존재하지만 권한 없음). Query `isVisible=false` 시 숨김 강의도 조회(실습).
+  Query:
+    - isVisible?: string   (false — 숨김 강의 상세 허용)
+  Path:
+    - courseId: string
+  Response (JSON): Course
+
+POST /api/courses/:courseId/visibility
+  Description: 강의 공개/숨김 변경.
+  Path:
+    - courseId: string
+  Headers: Content-Type: application/json
+  Body (JSON):
+    - isVisible: boolean
+  Response (JSON): Course
+
+================================================================================
+5. Files (`FilesModule`)
+================================================================================
+
+GET /api/courses/:courseId/files
+  Description: 특정 강의의 파일 메타데이터 목록.
+  Path:
+    - courseId: string
+  Response (JSON): FileMeta[]
+    FileMeta: { id, courseId, uploaderId, originalName, storedPath, mimeType, fileSize, isPublic, uploadedAt }
+
+GET /api/files/:fileId/download
+  Description: 파일 메타데이터 조회/다운로드 흐름(서비스 구현 기준). path의 fileId는 string.
+  Path:
+    - fileId: string
+  Response (JSON): FileMeta
+
+POST /api/files/:fileId/delete
+  Description: 파일 삭제 처리.
+  Path:
+    - fileId: string
+  Response (JSON): 삭제 직전 메타 일부 { id, courseId, uploaderId, originalName } (전체 FileMeta와 필드 수가 다를 수 있음)
+
+================================================================================
+6. Users — 공개 프로필 API (`UsersController`, 실제 경로 `/api/users`)
+================================================================================
+
+GET /api/users/:userId
+  Description: 사용자 단건 조회(응답에 passwordHash 포함 — 민감정보).
+  Path:
+    - userId: string
+  Response (JSON): UserPublic
+    UserPublic: { id, username, role, createdAt, recentLoginDate, status, passwordHash }
+      - recentLoginDate: string | null  (ISO 8601, 미로그인 시 null)
+      - status: `active` | `suspended`
+
+================================================================================
+7. Admin — 대시보드·사용자 관리 (`AdminController`, `AdminUsersController`)
+================================================================================
+
+GET /api/admin
+  Description: 관리자 대시보드 통계(하드코딩). 문서상 role: admin — **서버는 Bearer·role 검증 없음**.
+  Response (JSON): AdminDashboard
+    AdminDashboard: {
+      stats: {
+        totalUsers: { value: number, change: string },
+        openedCourses: { value: number, change: string },
+        totalEnrollments: { value: number, change: string },
+        activeUsers: { value: number, change: string }
+      },
+      enrollmentTrend: { month: string, count: number }[],
+      courseDistribution: { name: string, value: number }[],
+      weeklyActiveUsers: { day: string, users: number }[]
+    }
+
+GET /api/admin/users
+  Description: 전체 사용자 목록.
+  Response (JSON): UserPublic[]  (UserPublic 스키마는 §6 참고)
+
+POST /api/admin/users/:userId/role
+  Description: 사용자 role 변경.
+  Path:
+    - userId: string
+  Headers: Content-Type: application/json
+  Body (JSON):
+    - role: string              (`student` | `professor` | `admin` 권장; 검증은 약함)
+  Response (JSON): UserPublic  (UserPublic 스키마는 §6 참고)
+
+================================================================================
+8. Professors (`ProfessorsModule`)
+================================================================================
+
+`Professor` 엔티티만 TypeORM에 등록되어 있으며, **전용 HTTP 라우트는 없다.** `User`·`Course` 관계용이다.
+
+================================================================================
+끝.

@@ -1,0 +1,22 @@
+{
+  "name": "broken-regist",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/backend",
+    "apps/frontend"
+  ],
+  "scripts": {
+    "setup": "[ -f apps/backend/.env ] || cp apps/backend/.env.example apps/backend/.env",
+    "db:start": "bash scripts/setup-db.sh",
+    "dev": "npm run setup && npm run db:start && concurrently --names \"BE,FE\" --prefix-colors \"cyan,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run start:dev --workspace=apps/backend",
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v && docker compose up --build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

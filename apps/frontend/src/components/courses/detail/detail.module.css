@@ -1,0 +1,165 @@
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.badge {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.category {
+  background: #4a90e2;
+  color: white;
+}
+
+.hiddenBadge {
+  background: #666;
+  color: #fff;
+}
+
+.content {
+  background: #2a2a2a;
+  padding: 2rem;
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+}
+
+.infoSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.infoRow {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 1rem;
+}
+
+.label {
+  color: #999;
+  font-weight: 500;
+}
+
+.value {
+  color: #fff;
+}
+
+.description {
+  padding-top: 2rem;
+  border-top: 1px solid #e0e0e0;
+  margin-bottom: 2rem;
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.enrollButton {
+  flex: 1;
+  padding: 0.875rem;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.enrollButton:hover:not(:disabled) {
+  background: #357abd;
+}
+
+.enrollButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.enrolledButton {
+  flex: 1;
+  padding: 0.875rem;
+  background: #3a5a40;
+  color: #b7e4c7;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: default;
+  opacity: 0.9;
+}
+
+.cancelButton {
+  flex: 1;
+  padding: 0.875rem;
+  background: #1a1a1a;
+  color: #999;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancelButton:hover:not(:disabled) {
+  border-color: #c62917;
+  color: #c62917;
+}
+
+.cancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.filesButton {
+  flex: 1;
+  padding: 0.875rem;
+  background: #2a2a2a;
+  color: #999;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+}
+
+.filesButton:hover {
+  background: #1a1a1a;
+}

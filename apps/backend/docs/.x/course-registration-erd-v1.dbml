@@ -1,0 +1,231 @@
+// 수강신청 기반 웹 취약점 학습 서버
+// ERD v1 DBML for dbdiagram.io
+//
+// 설계 방향:
+// - 실제 학사 시스템이 아니라 취약점 실습용 "가짜 수강신청 사이트"를 전제로 한다.
+// - 회원가입 사용자는 users.role = student 로만 생성된다.
+// - professor/admin 계정과 강의 데이터는 시드 목데이터로 미리 넣는다.
+// - 학과, 학년, 학기, 정원, 성적, 민감 데이터 export 기능은 1차 구현에서 제외한다.
+// - 서버 세션 테이블은 두지 않고, JWT access token + refresh token 흐름을 기준으로 한다.
+
+Enum user_role {
+  student
+  professor
+  admin
+}
+
+Enum user_status {
+  active
+  suspended
+}
+
+Enum course_enrollment_status {
+  enrolled
+  dropped
+}
+
+// 통합 사용자 테이블
+// 학생/교수/관리자를 모두 users에 저장하고 role로 구분한다.
+Table users {
+  id bigint [pk, increment] // 사용자 PK
+  username varchar(50) [not null, unique] // 로그인 ID
+  password_hash varchar(255) [not null, note: 'sensitive'] // 비밀번호 해시
+  role user_role [not null, default: 'student'] // 권한 역할
+  created_at timestamptz [not null, default: `now()`] // 계정 생성 시각
+  recent_login_date timestamptz [note: '마지막 로그인(토큰 발급) 시각, 미로그인 시 null']
+  status user_status [not null, default: 'active'] // 계정 상태
+
+  indexes {
+    role [name: 'idx_users_role']
+  }
+}
+
+// professor role을 가진 시드 사용자만 연결한다.
+Table professors {
+  id bigint [pk, increment] // 교수 PK
+  user_id bigint [not null, unique] // 연결된 사용자
+  name varchar(100) [not null] // 화면 표시명
+  department_name varchar(100) // 목데이터용 소속명
+
+  indexes {
+    user_id [name: 'idx_professors_user_id']
+  }
+}
+
+// 수강신청 화면에 보여줄 목데이터다.
+Table courses {
+  id bigint [pk, increment] // 강의 PK
+  code varchar(20) [not null] // 강의 코드. 같은 코드의 목데이터/분반/반복 개설을 허용한다.
+  name varchar(200) [not null] // 강의명
+  description text // 강의 설명
+  professor_id bigint [not null] // 담당 교수
+  category varchar(100) // 분류/학과명 역할의 목데이터
+  lecture_time varchar(200) // 강의 시간 표시 문자열 (예: 월, 수 10:00-12:00)
+  classroom varchar(200) // 강의실
+  credits int // 학점
+  max_capacity int [not null, default: 30, note: 'CHECK max_capacity > 0'] // 수강 정원
+  current_count int [not null, default: 0, note: 'CHECK current_count >= 0 AND current_count <= max_capacity'] // 현재 신청 인원
+  is_visible boolean [not null, default: true] // 숨은 강의 시나리오용
+  created_at timestamptz [not null, default: `now()`] // 생성 시각
+
+  indexes {
+    professor_id [name: 'idx_courses_professor_id']
+    category [name: 'idx_courses_category']
+  }
+}
+
+// "누가 어떤 과목을 신청했는가"는 enrollments가 가진다.
+// 재신청 정책:
+// - 같은 사용자/강의의 활성 신청(enrolled)은 하나만 허용한다.
+// - dropped 이력은 남길 수 있고, 이후 재신청하면 새 enrolled 행을 만들 수 있다.
+// - DBML은 partial unique index를 직접 표현하기 어려워 SQL에서 uq_enrollments_active_user_course로 강제한다.
+Table enrollments {
+  id bigint [pk, increment] // 수강신청 PK
+  user_id bigint [not null] // 신청 사용자
+  course_id bigint [not null] // 신청 강의
+  status course_enrollment_status [not null, default: 'enrolled'] // 신청 상태
+  enrolled_at timestamptz [not null, default: `now()`] // 신청 시각
+  dropped_at timestamptz // 드랍 시각
+
+  indexes {
+    user_id [name: 'idx_enrollments_user_id']
+    course_id [name: 'idx_enrollments_course_id']
+    status [name: 'idx_enrollments_status']
+  }
+}
+
+// JWT 재발급용 토큰의 해시와 수명 주기를 저장한다.
+Table refresh_tokens {
+  id bigint [pk, increment] // Refresh token PK
+  user_id bigint [not null] // 토큰 소유 사용자
+  token_hash varchar(255) [not null, note: 'sensitive'] // 토큰 해시
+  issued_at timestamptz [not null, default: `now()`] // 발급 시각
+  expires_at timestamptz [not null] // 만료 시각
+  revoked_at timestamptz // 폐기 시각
+  device_info text // 기기/브라우저 정보
+
+  indexes {
+    user_id [name: 'idx_refresh_tokens_user_id']
+    expires_at [name: 'idx_refresh_tokens_expires_at']
+  }
+}
+
+// 시드 강의 자료의 목록/다운로드/삭제와 디렉터리 목록 노출, 경로 조작 테스트에 사용된다.
+Table files {
+  id bigint [pk, increment] // 파일 PK
+  course_id bigint [not null] // 파일이 속한 강의
+  uploader_id bigint [not null] // 업로드한 사용자
+  original_name varchar(255) [not null] // 원본 파일명
+  stored_path varchar(500) [not null, note: 'sensitive'] // 서버 내부 저장 경로
+  mime_type varchar(100) // MIME 타입
+  file_size bigint [not null, note: 'CHECK file_size >= 0'] // 파일 크기
+  is_public boolean [not null, default: false] // 공개 파일 여부
+  uploaded_at timestamptz [not null, default: `now()`] // 업로드 시각
+
+  indexes {
+    course_id [name: 'idx_files_course_id']
+    uploader_id [name: 'idx_files_uploader_id']
+  }
+}
+
+// 오류 정보 노출/스택 트레이스 노출 테스트의 주요 대상이다.
+Table error_logs {
+  id bigint [pk, increment] // 에러 로그 PK
+  error_type varchar(100) [not null] // 예외 타입 또는 에러 코드
+  message text [not null] // 에러 메시지
+  stack_trace text [note: 'sensitive'] // 내부 스택 트레이스
+  request_path varchar(500) [not null] // 요청 경로
+  request_method varchar(10) [not null] // HTTP 메서드
+  request_body text [note: 'sensitive'] // 요청 본문
+  user_id bigint // 로그인 사용자. 익명 요청이면 NULL
+  created_at timestamptz [not null, default: `now()`] // 로그 생성 시각
+
+  indexes {
+    created_at [name: 'idx_error_logs_created_at']
+    user_id [name: 'idx_error_logs_user_id']
+  }
+}
+
+// BFLA, Forced Browsing, HTTP Method Tampering 실습의 증적 테이블이다.
+Table audit_logs {
+  id bigint [pk, increment] // 감사 로그 PK
+  user_id bigint // 요청 사용자. 비로그인 요청이면 NULL
+  action varchar(100) [not null] // 비즈니스 액션명
+  resource_type varchar(50) [not null] // 대상 리소스 종류
+  resource_id bigint // 대상 리소스 ID
+  ip_address varchar(45) // 요청 IP
+  request_method varchar(10) [not null] // HTTP 메서드
+  request_path varchar(500) [not null] // 요청 경로
+  response_status int [not null, note: 'CHECK response_status BETWEEN 100 AND 599'] // HTTP 응답 상태
+  created_at timestamptz [not null, default: `now()`] // 로그 생성 시각
+
+  indexes {
+    user_id [name: 'idx_audit_logs_user_id']
+    (resource_type, resource_id) [name: 'idx_audit_logs_resource']
+    created_at [name: 'idx_audit_logs_created_at']
+  }
+}
+
+// 위험한 설정값을 DB에 보관해 노출 범위를 조절한다.
+Table debug_configs {
+  id bigint [pk, increment] // 설정 PK
+  config_key varchar(100) [not null, unique] // 설정 키
+  config_value text [not null, note: 'sensitive'] // 설정 값
+  is_sensitive boolean [not null, default: false] // 민감 설정 여부
+  description text // 설정 설명
+  updated_at timestamptz [not null, default: `now()`] // 마지막 수정 시각
+  updated_by bigint // 마지막 수정 사용자
+
+  indexes {
+    is_sensitive [name: 'idx_debug_configs_sensitive']
+  }
+}
+
+// 서버가 응답할 Access-Control-* 정책을 데이터로 관리한다.
+Table cors_policies {
+  id bigint [pk, increment] // CORS 정책 PK
+  allowed_origin varchar(255) [not null] // 허용 Origin
+  allowed_methods varchar(200) [not null] // 허용 HTTP 메서드 목록
+  allowed_headers varchar(500) [not null] // 허용 요청 헤더 목록
+  allow_credentials boolean [not null, default: false] // 인증정보 포함 허용 여부
+  max_age int [not null, default: 0, note: 'CHECK max_age >= 0'] // preflight 캐시 시간
+  is_active boolean [not null, default: true] // 현재 적용 여부
+  created_at timestamptz [not null, default: `now()`] // 정책 생성 시각
+
+  indexes {
+    is_active [name: 'idx_cors_policies_active']
+  }
+}
+
+Ref: professors.user_id > users.id [delete: cascade]
+Ref: courses.professor_id > professors.id [delete: restrict]
+Ref: enrollments.user_id > users.id [delete: cascade]
+Ref: enrollments.course_id > courses.id [delete: cascade]
+Ref: refresh_tokens.user_id > users.id [delete: cascade]
+Ref: files.course_id > courses.id [delete: cascade]
+Ref: files.uploader_id > users.id [delete: restrict]
+Ref: error_logs.user_id > users.id [delete: set null]
+Ref: audit_logs.user_id > users.id [delete: set null]
+Ref: debug_configs.updated_by > users.id [delete: set null]
+
+TableGroup "User & Auth" {
+  users
+  professors
+  refresh_tokens
+}
+
+TableGroup "Course Flow" {
+  courses
+  enrollments
+  files
+}
+
+TableGroup "Vulnerability Control" {
+  debug_configs
+  cors_policies
+}
+
+TableGroup "Observability Logs" {
+  audit_logs
+  error_logs
+}

@@ -1,0 +1,152 @@
+.container {
+  max-width: 100%;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.75rem;
+}
+
+.profileSection {
+  background: #2a2a2a;
+  padding: 1.25rem;
+  border-radius: 3px;
+  border: 1px solid #3a3a3a;
+  margin-bottom: 0.75rem;
+  display: flex;
+  gap: 1.25rem;
+}
+
+.profilePhoto {
+  flex-shrink: 0;
+}
+
+.photoPlaceholder {
+  width: 100px;
+  height: 100px;
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photoIcon {
+  font-size: 2.5rem;
+  color: #555;
+}
+
+.profileInfo {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.625rem 1.5rem;
+}
+
+.infoRow {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.infoLabel {
+  color: #999;
+  font-weight: 400;
+  min-width: 80px;
+}
+
+.infoValue {
+  color: #fff;
+  font-weight: 500;
+}
+
+.sectionTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.5rem;
+  margin-top: 1rem;
+}
+
+.enrollmentList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.enrollmentCard {
+  background: #2a2a2a;
+  padding: 1rem;
+  border-radius: 3px;
+  border: 1px solid #3a3a3a;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.enrollmentCard:hover {
+  border-color: #c62917;
+}
+
+.enrollmentInfo {
+  flex: 1;
+}
+
+.courseTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.375rem;
+}
+
+.professor {
+  color: #999;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.date {
+  color: #777;
+  font-size: 0.8125rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.detailButton {
+  padding: 0.5rem 1rem;
+  background: #c62917;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.detailButton:hover {
+  background: #a82315;
+}
+
+.cancelButton {
+  padding: 0.5rem 1rem;
+  background: #1a1a1a;
+  color: #999;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cancelButton:hover {
+  border-color: #c62917;
+  color: #c62917;
+}
