@@ -2,37 +2,25 @@
 
 ## 사전 요구사항
 
-| 도구 | 버전 | 확인 방법 |
-|------|------|----------|
-| Node.js | 20 이상 | `node -v` |
-| npm | 10 이상 | `npm -v` |
+| 도구       | 버전    | 확인 방법        |
+| ---------- | ------- | ---------------- |
+| Node.js    | 20 이상 | `node -v`        |
+| npm        | 10 이상 | `npm -v`         |
 | PostgreSQL | 14 이상 | `psql --version` |
 
 ---
 
 ## PostgreSQL 설치 (최초 1회)
 
-로컬에 PostgreSQL이 없는 경우 아래 중 하나를 선택합니다.
-
-### ① Homebrew (권장)
-
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-```
-
-### ② Postgres.app (GUI 방식)
-
-[https://postgresapp.com](https://postgresapp.com) 에서 다운로드 후 실행합니다.  
-메뉴바 아이콘에서 서버가 실행 중인지 확인하세요.
+로컬에 PostgreSQL이 없는 경우 Homebrew 혹은 [https://postgresapp.com](https://postgresapp.com) 에서 다운로드 후 실행합니다.
 
 ---
 
 ## 설치 및 실행
 
 ```bash
-# 1. web/ 디렉토리로 이동
-cd kt_tech_up_project/web
+# 1. 루트디렉토리로 이동
+cd web
 
 # 2. 의존성 설치
 npm install
@@ -51,10 +39,10 @@ npm run dev
 
 ### 접속 주소
 
-| 서비스 | URL |
-|--------|-----|
-| 프론트엔드 | http://localhost:3000 |
-| 백엔드 API | http://localhost:4000/api |
+| 서비스       | URL                            |
+| ------------ | ------------------------------ |
+| 프론트엔드   | http://localhost:3000          |
+| 백엔드 API   | http://localhost:4000/api      |
 | Swagger 문서 | http://localhost:4000/api-docs |
 
 ---
